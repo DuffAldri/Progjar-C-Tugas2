@@ -4,6 +4,8 @@ import threading
 import logging
 import time
 import sys
+from datetime import datetime
+import pytz
 
 class ProcessTheClient(threading.Thread):
 	def __init__(self,connection,address):
@@ -13,11 +15,22 @@ class ProcessTheClient(threading.Thread):
 
 	def run(self):
 		while True:
-			data = self.connection.recv(32)
-			if data:
-				self.connection.sendall(data)
+			data = self.connection.recv(64)
+			data = data.decode('utf-8')
+			logging.info(f"Received: {data}")
+            
+			if data.startswith("TIME") and data.endswith("\r\n"):
+				logging.info(f"Received: {data}")
+				curr_time = datetime.now(pytz.timezone("Asia/Jakarta"))
+				curr_time = curr_time.strftime("%H:%M:%S")
+				reply = f"JAM {curr_time}\r\n"
+				reply = reply.encode('utf-8')
+				self.connection.sendall(reply)
 			else:
-				break
+				if data:
+					self.connection.sendall("Error".encode('utf-8'))
+				else:
+					break
 		self.connection.close()
 
 class Server(threading.Thread):
@@ -27,7 +40,7 @@ class Server(threading.Thread):
 		threading.Thread.__init__(self)
 
 	def run(self):
-		self.my_socket.bind(('0.0.0.0',8889))
+		self.my_socket.bind(('0.0.0.0',45001))
 		self.my_socket.listen(1)
 		while True:
 			self.connection, self.client_address = self.my_socket.accept()
